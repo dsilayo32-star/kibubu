@@ -1,0 +1,5 @@
+{
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
+    "chatgpt.gpt3.provider": "OpenAI",
+    "chat.disableAIFeatures": false
+}
