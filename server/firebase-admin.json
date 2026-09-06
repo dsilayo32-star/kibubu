@@ -1,33 +1,4 @@
-{
-  "name": "kibubu-mpesa-server",
-  "version": "1.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "kibubu-mpesa-server",
-      "version": "1.0.0",
-      "dependencies": {
-        "axios": "^1.8.4",
-        "dotenv": "^16.4.7",
-        "express": "^4.21.2",
-        "firebase-admin": "^13.2.0"
-      }
-    },
-    "node_modules/@fastify/busboy": {
-      "version": "3.2.2",
-      "resolved": "https://registry.npmjs.org/@fastify/busboy/-/busboy-3.2.2.tgz",
-      "integrity": "sha512-yXSS27qPExaXeuLvMRMXOLtpipzfQYNjG3FkunDWKGfMYjKuhFXko9CVzqxm8jcF+lmtS9Fd89QNdh9XDjnbNg==",
-      "license": "MIT"
-    },
-    "node_modules/@firebase/app-check-interop-types": {
-      "version": "0.3.5",
-      "resolved": "https://registry.npmjs.org/@firebase/app-check-interop-types/-/app-check-interop-types-0.3.5.tgz",
-      "integrity": "sha512-qId34pVZ2CXTmtu4ofW5leiI93DvnOvIcr/5GT7MZPw5WXAi6nZoU+g9cNRgl7K90UJSbK0cXxten4meYMPyZg==",
-      "license": "Apache-2.0"
-    },
-    "node_modules/@firebase/app-types": {
-      "version": "0.9.6",
+{}
       "resolved": "https://registry.npmjs.org/@firebase/app-types/-/app-types-0.9.6.tgz",
       "integrity": "sha512-yPLahy7Esfu2w/yme3msVK4xTkDXQqq6szfQn8yVOQpCKiT5GVFjqNpLbuz6NkX0WuTwUidkmPewW3r4xkvpeg==",
       "license": "Apache-2.0",

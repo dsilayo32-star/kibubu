@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kibubu/models/goal.dart';
 import 'package:kibubu/state/app_state.dart' as state;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,7 +67,7 @@ void main() {
     test('checkAndApplyAllInactivityFees inakagua malengo yote na kuzuia tozo kurudiwa ndani ya siku 21', () async {
       final now = DateTime.now();
       state.goals = [
-        {
+        Goal.fromMap({
           'name': 'Lengo A (Inactive)',
           'target': 200000.0,
           'saved': 50000.0,
@@ -75,8 +76,8 @@ void main() {
               .subtract(const Duration(days: 30))
               .toIso8601String(),
           'history': [],
-        },
-        {
+        }),
+        Goal.fromMap({
           'name': 'Lengo B (Active hivi karibuni)',
           'target': 200000.0,
           'saved': 50000.0,
@@ -85,13 +86,13 @@ void main() {
               .subtract(const Duration(days: 5))
               .toIso8601String(),
           'history': [],
-        },
+        }),
       ];
 
       final count = await state.checkAndApplyAllInactivityFees();
       expect(count, 1);
-      expect(state.goals[0]['saved'], 47000.0); // 50,000 - 6% (3,000) = 47,000
-      expect(state.goals[1]['saved'], 50000.0); // Bado haijakatwa
+      expect(state.goals[0].saved, 47000.0); // 50,000 - 6% (3,000) = 47,000
+      expect(state.goals[1].saved, 50000.0); // Bado haijakatwa
 
       // Kama tutaiita tena mara moja, isikate tena kwa sababu lastPenaltyAt ni sasa
       final countAgain = await state.checkAndApplyAllInactivityFees();

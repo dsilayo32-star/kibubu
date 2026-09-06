@@ -16,7 +16,9 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.kibubu"
+        // IMPORTANT: Change from "com.example.kibubu" to your actual package name (e.g., "com.kibubu.savings").
+        // This is required for Google Play Store and must be unique globally.
+        applicationId = "com.kibubu.savings"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

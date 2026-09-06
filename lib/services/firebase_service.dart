@@ -45,6 +45,14 @@ class FirebaseService {
   }
 
   /// Anzisha Firebase. Hairudishi kosa — inarudisha bool tu.
+  /// TODO: After running `flutterfire configure --project=kibubu-981a0`,
+  /// update this to import and use firebase_options.dart:
+  /// ```
+  /// import '../firebase_options.dart';
+  /// await Firebase.initializeApp(
+  ///   options: DefaultFirebaseOptions.currentPlatform,
+  /// );
+  /// ```
   static Future<bool> init() async {
     if (_isReady) return true;
     try {

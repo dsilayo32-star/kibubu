@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kibubu/models/goal.dart';
 import 'package:kibubu/models/savings_entry.dart';
 import 'package:kibubu/utils/export_helper.dart';
 
@@ -27,12 +28,12 @@ void main() {
 
     test('generateTextSummary() inaweka taarifa zote muhimu', () {
       final goals = [
-        {
+        Goal.fromMap({
           'name': 'Ada ya Shule',
           'target': 100000.0,
           'saved': 50000.0,
           'completed': false,
-        },
+        }),
       ];
       final entries = [
         SavingsEntry(
@@ -58,7 +59,7 @@ void main() {
 
     test('collectAllEntries() inakusanya miamala kutoka malengo tofauti na kupanga kwa tarehe', () {
       final goals = [
-        {
+        Goal.fromMap({
           'name': 'Lengo 1',
           'history': [
             {
@@ -67,7 +68,7 @@ void main() {
               'type': 'deposit',
             },
           ],
-        },
+        }),
       ];
       final currentHistory = [
         SavingsEntry(amount: 2000, date: DateTime(2026, 3, 2, 10, 0)),

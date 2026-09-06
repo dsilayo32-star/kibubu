@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kibubu/models/goal.dart';
 import 'package:kibubu/pages/profile_page.dart';
 import 'package:kibubu/state/app_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +15,7 @@ void main() {
     // Malengo mawili, kila moja na historia yake.
     goals.clear();
     goals.addAll([
-      {
+      Goal.fromMap({
         'name': 'Kompyuta',
         'target': 500000.0,
         'saved': 10000.0,
@@ -28,8 +29,8 @@ void main() {
             'type': 'deposit',
           },
         ],
-      },
-      {
+      }),
+      Goal.fromMap({
         'name': 'Baiskeli',
         'target': 200000.0,
         'saved': 5000.0,
@@ -43,7 +44,7 @@ void main() {
             'type': 'deposit',
           },
         ],
-      },
+      }),
     ]);
     // Active goal: Baiskeli (history yake iko live kwenye savingsHistory).
     activeGoalIndex = 1;

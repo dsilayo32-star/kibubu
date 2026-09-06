@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kibubu/models/goal.dart';
 import 'package:kibubu/models/savings_entry.dart';
 import 'package:kibubu/state/app_state.dart' as state;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,11 +30,11 @@ void main() {
 
       final record = state.goalRecord();
 
-      expect(record['name'], 'Ada ya shule');
-      expect(record['target'], 100000);
-      expect(record['saved'], 25000);
-      expect((record['history'] as List).length, 2);
-      expect((record['history'] as List).first['type'], 'deposit');
+      expect(record.name, 'Ada ya shule');
+      expect(record.target, 100000);
+      expect(record.saved, 25000);
+      expect(record.history.length, 2);
+      expect(record.history.first.type, 'deposit');
 
       // Futa memory kisha pakia kutoka record
       state.goalName = '';
@@ -63,7 +64,7 @@ void main() {
       ];
 
       final record = state.goalRecord();
-      expect((record['history'] as List).first['type'], 'deposit');
+      expect(record.history.first.type, 'deposit');
     });
   });
 
@@ -128,8 +129,8 @@ void main() {
   group('syncActiveGoal()', () {
     test('inaandika upya lengo lililo active tu', () {
       state.goals = [
-        {'name': 'Lengo A', 'target': 100, 'saved': 10},
-        {'name': 'Lengo B', 'target': 200, 'saved': 20},
+        Goal.fromMap({'name': 'Lengo A', 'target': 100, 'saved': 10}),
+        Goal.fromMap({'name': 'Lengo B', 'target': 200, 'saved': 20}),
       ];
       state.activeGoalIndex = 1;
 
@@ -143,15 +144,15 @@ void main() {
 
       state.syncActiveGoal();
 
-      expect(state.goals[0]['name'], 'Lengo A');
-      expect(state.goals[0]['target'], 100);
-      expect(state.goals[1]['target'], 250);
-      expect(state.goals[1]['saved'], 30);
+      expect(state.goals[0].name, 'Lengo A');
+      expect(state.goals[0].target, 100);
+      expect(state.goals[1].target, 250);
+      expect(state.goals[1].saved, 30);
     });
 
     test('hakuna index active — hakuna kinachoharibika', () {
       state.goals = [
-        {'name': 'Lengo A', 'target': 100, 'saved': 10},
+        Goal.fromMap({'name': 'Lengo A', 'target': 100, 'saved': 10}),
       ];
       state.activeGoalIndex = -1;
       state.goalName = 'X';
@@ -164,55 +165,55 @@ void main() {
 
       state.syncActiveGoal();
       expect(state.goals.length, 1);
-      expect(state.goals[0]['name'], 'Lengo A');
+      expect(state.goals[0].name, 'Lengo A');
     });
   });
 
   group('deleteGoal() & updateGoal()', () {
     test('deleteGoal() inafuta lengo na kurekebisha activeGoalIndex', () async {
       state.goals = [
-        {
+        Goal.fromMap({
           'name': 'Lengo 1',
           'target': 100,
           'saved': 10,
           'completed': false,
           'history': [],
-        },
-        {
+        }),
+        Goal.fromMap({
           'name': 'Lengo 2',
           'target': 200,
           'saved': 20,
           'completed': false,
           'history': [],
-        },
-        {
+        }),
+        Goal.fromMap({
           'name': 'Lengo 3',
           'target': 300,
           'saved': 30,
           'completed': false,
           'history': [],
-        },
+        }),
       ];
       state.activeGoalIndex = 1;
 
       await state.deleteGoal(1);
 
       expect(state.goals.length, 2);
-      expect(state.goals[0]['name'], 'Lengo 1');
-      expect(state.goals[1]['name'], 'Lengo 3');
+      expect(state.goals[0].name, 'Lengo 1');
+      expect(state.goals[1].name, 'Lengo 3');
       expect(state.activeGoalIndex, 1);
       expect(state.goalName, 'Lengo 3');
     });
 
     test('deleteGoal() inafuta lengo la mwisho kabisa na kuweka activeGoalIndex -1', () async {
       state.goals = [
-        {
+        Goal.fromMap({
           'name': 'Lengo Pekee',
           'target': 100,
           'saved': 10,
           'completed': false,
           'history': [],
-        },
+        }),
       ];
       state.activeGoalIndex = 0;
       state.goalName = 'Lengo Pekee';
@@ -230,13 +231,13 @@ void main() {
       final start = DateTime(2026, 1, 1);
       final end = DateTime(2026, 6, 1);
       state.goals = [
-        {
+        Goal.fromMap({
           'name': 'Lengo La Zamani',
           'target': 100,
           'saved': 10,
           'completed': false,
           'history': [],
-        },
+        }),
       ];
       state.activeGoalIndex = 0;
 
@@ -248,8 +249,8 @@ void main() {
         end: end,
       );
 
-      expect(state.goals[0]['name'], 'Lengo Jipya');
-      expect(state.goals[0]['target'], 500);
+      expect(state.goals[0].name, 'Lengo Jipya');
+      expect(state.goals[0].target, 500);
       expect(state.goalName, 'Lengo Jipya');
       expect(state.targetAmount, 500);
       expect(state.startDate, start);
@@ -261,7 +262,7 @@ void main() {
     test('applyForLoan inakataa duration isiyo sahihi', () async {
       state.userLoans = [];
       state.goals = [
-        {'name': 'Lengo', 'saved': 100000.0, 'target': 200000.0},
+        Goal.fromMap({'name': 'Lengo', 'saved': 100000.0, 'target': 200000.0}),
       ];
 
       final error = await state.applyForLoan(
