@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-import '../models/goal.dart';
 import '../models/savings_entry.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';

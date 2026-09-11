@@ -2,6 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kibubu/services/payment_service.dart';
 
 void main() {
+  setUp(() {
+    PaymentService.activeBaseUrl = '';
+  });
+
   group('PaymentService', () {
     test('detectNetwork() inatambua mitandao yote 4 kwa usahihi', () {
       expect(PaymentService.detectNetwork('0754123456'), MobileNetwork.mpesa);

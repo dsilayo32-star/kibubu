@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 
@@ -80,7 +81,12 @@ class PaymentTransaction {
 
 /// Huduma ya Malipo ya Mtandao wa Simu (Mobile Money Gateway).
 class PaymentService {
-  static const _apiBaseUrl = String.fromEnvironment('MPESA_API_BASE_URL');
+  static const String _configuredUrl =
+      String.fromEnvironment('MPESA_API_BASE_URL');
+
+  static String activeBaseUrl = _configuredUrl.isNotEmpty
+      ? _configuredUrl
+      : 'https://kibubu.onrender.com';
 
   static String _safeAccountReference(String goalName) {
     final normalized = (goalName.isEmpty ? 'KIBUBU' : goalName).replaceAll(
@@ -164,41 +170,65 @@ class PaymentService {
     }
     final fee = calculateFee(amount);
 
-    if (_apiBaseUrl.isNotEmpty) {
+    if (activeBaseUrl.isNotEmpty) {
+      String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '255${cleanPhone.substring(1)}';
+      }
+
       try {
-        final response = await http.post(
-          Uri.parse('$_apiBaseUrl/api/v1/stkpush'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'phoneNumber': phone,
-            'amount': amount.round(),
-            'accountReference': _safeAccountReference(goalName),
-          }),
-        );
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw PaymentException(
-            data['error'] as String? ?? 'STK Push imeshindikana.',
+        final response = await http
+            .post(
+              Uri.parse('$activeBaseUrl/api/v1/stkpush'),
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'phoneNumber': cleanPhone,
+                'amount': amount.round(),
+                'accountReference': _safeAccountReference(goalName),
+              }),
+            )
+            .timeout(const Duration(seconds: 60));
+
+        // 1. Angalia kama Server imerudisha Majibu Sahihi (200 OK / 201 Created)
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          return PaymentTransaction(
+            reference:
+                data['CheckoutRequestID'] as String? ?? generateReference(),
+            phone: phone,
+            network: network,
+            amount: amount,
+            fee: fee,
+            date: DateTime.now(),
+            status: 'PENDING',
+            type: type,
+            goalName: goalName,
           );
+        } else {
+          // Majibu yasiyo ya 200 (kama 502, 503, 400, 404)
+          String errorMsg =
+              'Server error (${response.statusCode}): Server haipatikani kwa sasa.';
+          try {
+            final errData = jsonDecode(response.body);
+            if (errData is Map && errData['error'] != null) {
+              errorMsg = errData['error'].toString();
+            }
+          } catch (_) {}
+          throw PaymentException(errorMsg);
         }
-        return PaymentTransaction(
-          reference:
-              data['CheckoutRequestID'] as String? ?? generateReference(),
-          phone: phone,
-          network: network,
-          amount: amount,
-          fee: fee,
-          date: DateTime.now(),
-          status: 'PENDING',
-          type: type,
-          goalName: goalName,
-        );
       } on PaymentException {
         rethrow;
-      } catch (_) {
+      } on FormatException {
+        // 2. Inakamata HTML error pages kutoka Render badala ya ku-crash
         throw const PaymentException(
-          'Imeshindikana kuwasiliana na server ya malipo.',
+          'Majibu kutoka kwenye server siyo JSON halali. Server inawezekana iko chini.',
         );
+      } on TimeoutException {
+        throw const PaymentException(
+          'Muda wa mawasiliano na server umepita (Timeout). Tafadhali jaribu tena.',
+        );
+      } catch (e) {
+        throw PaymentException('Imefeli kuunganisha: $e');
       }
     }
 

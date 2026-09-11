@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   normalizePhone,
+  resolveDarajaPhoneNumber,
+  DEFAULT_SANDBOX_PHONE,
   positiveAmount,
   safeReference,
 } = require('../src/validation');
@@ -30,4 +32,20 @@ test('sanitizes account references', () => {
   assert.equal(safeReference('KIBUBU_123'), 'KIBUBU_123');
   assert.equal(safeReference('bad reference'), null);
   assert.equal(safeReference('<script>'), null);
+});
+
+test('substitutes 255 numbers with DEFAULT_SANDBOX_PHONE in sandbox mode', () => {
+  assert.equal(resolveDarajaPhoneNumber('255712345678', true), DEFAULT_SANDBOX_PHONE);
+  assert.equal(resolveDarajaPhoneNumber('254708374149', true), '254708374149');
+});
+
+test('preserves original phone number in production mode', () => {
+  assert.equal(resolveDarajaPhoneNumber('255712345678', false), '255712345678');
+  assert.equal(resolveDarajaPhoneNumber('254708374149', false), '254708374149');
+});
+
+test('getFirestore gracefully returns null and logs warning if credentials missing', () => {
+  const { getFirestore } = require('../src/server');
+  const db = getFirestore();
+  assert.equal(db, null);
 });
