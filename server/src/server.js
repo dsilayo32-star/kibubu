@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const express = require('express');
+const cors = require('cors');
 let admin = null;
 try {
   admin = require('firebase-admin');
@@ -19,6 +20,8 @@ const {
 } = require('./validation');
 
 const app = express();
+app.use(cors());
+app.options('*', cors());
 app.use(express.json({ limit: '32kb' }));
 
 app.get('/', (req, res) => {
