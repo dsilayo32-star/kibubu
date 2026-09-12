@@ -131,67 +131,144 @@
     <p style="color:#8b949e; font-size:0.9rem;">Fanya majaribio ya M-Pesa STK Push moja kwa moja.</p>
 
     <label for="phone">Nambari ya Simu (M-Pesa format: 2557XXXXXXXX au 2547XXXXXXXX)</label>
-    <input type="text" id="phone" value="255712345678" />
-    <small style="color: #8b949e; display:block; margin-top:4px;">Kumbuka: Kwenye Sandbox mode, namba yoyote ya test ya
+    <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel"
+      aria-describedby="phone-hint" value="255712345678" />
+    <small id="phone-hint" style="color: #8b949e; display:block; margin-top:4px;">Kumbuka: Kwenye Sandbox mode, namba yoyote ya test ya
       Tanzania (<code>255...</code>) inabadilishwa kuwa <code>254708374149</code> kiotomatiki na server ili kuzuia
       hitilafu ya Daraja Sandbox.</small>
 
     <label for="amount">Kiasi (TZS)</label>
-    <input type="number" id="amount" value="1000" />
+    <input type="number" id="amount" name="amount" min="1" max="150000" step="1" inputmode="numeric" value="1000" />
 
     <label for="ref">Kumbukumbu ya Malipo (Account Reference)</label>
-    <input type="text" id="ref" value="KIBUBU_TEST" />
+    <input type="text" id="ref" name="accountReference" maxlength="20" autocomplete="off" value="KIBUBU_TEST" />
 
     <div class="btn-group">
       <button class="btn-secondary" onclick="checkHealth()">1. Check Health (/health)</button>
       <button class="btn-primary" onclick="sendStkPush()">2. Tuma STK Push</button>
     </div>
 
-    <div id="status"></div>
-    <pre id="log">// Matokeo ya test yataonekana hapa...</pre>
+    <div id="status" role="status" aria-live="polite"></div>
+    <pre id="log" aria-live="polite">// Matokeo ya test yataonekana hapa...</pre>
   </div>
 
   <script>
     const logEl = document.getElementById('log');
     const statusEl = document.getElementById('status');
 
+    // Rangi za status pill zilizokuwa zikijirudia mara nyingi.
+    const PILL = {
+      ok: 'background:#238636;color:white',
+      bad: 'background:#da3633;color:white',
+      wait: 'background:#d29922;color:black'
+    };
+
+    function showStatus(message, kind) {
+      statusEl.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'status-pill';
+      span.setAttribute('style', PILL[kind] || PILL.ok);
+      span.textContent = message;
+      statusEl.appendChild(span);
+    }
+
+    // Server inaweza kurudisha HTML (mfano ukurasa wa 404 wa Express) badala ya
+    // JSON. Tusipolinda, res.json() inatupa SyntaxError na mtumiaji anaona
+    // "Network Error" ya uongo ingawa server ilijibu.
+    async function readResponse(res) {
+      const raw = await res.text();
+      try {
+        return { data: JSON.parse(raw), text: raw };
+      } catch {
+        return { data: null, text: raw };
+      }
+    }
+
+    // Hutafuta ujumbe wa kosa kwenye majibu ya namna mbalimbali.
+    function errorMessage(data, res, raw) {
+      if (data && typeof data === 'object') {
+        if (typeof data.error === 'string' && data.error) return data.error;
+        if (typeof data.ResultDesc === 'string' && data.ResultDesc) return data.ResultDesc;
+        if (typeof data.CustomerMessage === 'string' && data.CustomerMessage) return data.CustomerMessage;
+      }
+      if (raw) {
+        const stripped = raw.split('<').map(function (chunk) {
+          const end = chunk.indexOf('>');
+          return end === -1 ? chunk : chunk.slice(end + 1);
+        }).join(' ').split(/\s+/).join(' ').trim();
+        if (stripped) return stripped.slice(0, 200);
+      }
+      return 'Server ilijibu kwa HTTP ' + res.status + ' bila maelezo.';
+    }
+
     async function checkHealth() {
       logEl.textContent = 'Inapima Server Health...';
       try {
         const res = await fetch('/health');
-        const data = await res.json();
-        logEl.textContent = JSON.stringify(data, null, 2);
-        statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Server ipo hewani (OK)</span>';
+        const { data, text } = await readResponse(res);
+        logEl.textContent = data ? JSON.stringify(data, null, 2) : text;
+        if (res.ok && data && data.ok === true) {
+          showStatus('Server ipo hewani (OK)', 'ok');
+        } else {
+          showStatus('Server imejibu HTTP ' + res.status, 'bad');
+        }
       } catch (e) {
         logEl.textContent = 'Hitilafu: ' + e.message;
-        statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Imeshindwa kufikia server</span>';
+        showStatus('Imeshindwa kufikia server', 'bad');
       }
     }
 
     async function sendStkPush() {
       const phoneNumber = document.getElementById('phone').value.trim();
-      const amount = Number(document.getElementById('amount').value);
       const accountReference = document.getElementById('ref').value.trim();
+      const amountRaw = document.getElementById('amount').value.trim();
+
+      // Number('') ni 0 na Number('abc') ni NaN. Server inazikataa zote mbili,
+      // hivyo tuonyeshe kosa wazi kabla ya kutuma ombi.
+      const amount = Number(amountRaw);
+      if (!amountRaw || !Number.isInteger(amount) || amount <= 0) {
+        logEl.textContent = 'Kiasi lazima kiwe nambari kamili kubwa kuliko 0.';
+        showStatus('Kiasi batili', 'bad');
+        return;
+      }
+      if (amount > 150000) {
+        logEl.textContent = 'Kiasi kikubwa kupita kiasi. Kiwango cha juu ni TZS 150000.';
+        showStatus('Kiasi kikubwa mno', 'bad');
+        return;
+      }
+      if (!phoneNumber) {
+        logEl.textContent = 'Tafadhali jaza nambari ya simu.';
+        showStatus('Nambari ya simu haipo', 'bad');
+        return;
+      }
 
       logEl.textContent = 'Inatuma ombi la STK Push kwenda Safaricom Sandbox...';
-      statusEl.innerHTML = '<span class="status-pill" style="background:#d29922;color:black">Inatuma ombi...</span>';
+      showStatus('Inatuma ombi...', 'wait');
 
       try {
         const res = await fetch('/api/v1/stkpush', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ phoneNumber, amount, accountReference })
         });
-        const data = await res.json();
-        logEl.textContent = JSON.stringify(data, null, 2);
+        const { data, text } = await readResponse(res);
+
         if (res.ok) {
-          statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Ombi Limekubaliwa! Status: ' + res.status + '</span>';
+          logEl.textContent = data
+            ? JSON.stringify(data, null, 2)
+            : text;
+          showStatus('Ombi Limekubaliwa! Status: ' + res.status, 'ok');
         } else {
-          statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Hitilafu! Status: ' + res.status + '</span>';
+          // Kosa linajirudia kwenye JSON na kwenye ujumbe uliotolewa. Onyesha
+          // JSON kamili ikiwa ni sahihi, vinginevyo ujumbe uliosafishwa tu.
+          logEl.textContent = data
+            ? JSON.stringify(data, null, 2)
+            : errorMessage(data, res, text);
+          showStatus('Hitilafu! Status: ' + res.status, 'bad');
         }
       } catch (e) {
         logEl.textContent = 'Hitilafu ya mtandao au server: ' + e.message;
-        statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Network Error</span>';
+        showStatus('Network Error', 'bad');
       }
     }
   </script>

@@ -43,169 +43,26 @@ app.get(['/dashboard', '/test'], (_req, res) => {
 
 app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 
+// All API routes live in ./routes.
 app.use(router);
 
-app.get('/api/status', (_req, res) => res.json({
-  status: 'running',
-  service: 'kibubu-mpesa-server',
-  health: '/health',
-  timestamp: new Date().toISOString()
-}));
+// JSON error handler, registered last so it catches anything the router or
+// express.json() throws. Without it Express falls back to its HTML error page,
+// and API clients that call res.json() choke on "<!DOCTYPE ..." instead of
+// reading the error. The 4 arguments are what marks this as an error handler.
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
-
-app.post('/api/v1/stkpush', async (req, res) => {
-  try {
-    const isSandbox = process.env.MPESA_ENV !== 'production';
-    const phoneNumber = normalizePhone(req.body?.phoneNumber, isSandbox);
-    const amount = req.body?.amount;
-    const accountReference = safeReference(req.body?.accountReference);
-    if (!phoneNumber) {
-      return res.status(400).json({
-        error: isSandbox
-          ? 'phoneNumber must be 2557XXXXXXXX or test format 2547XXXXXXXX.'
-          : 'phoneNumber must be 2557XXXXXXXX.'
-      });
-    }
-    if (!positiveAmount(amount)) {
-      return res.status(400).json({ error: 'amount must be a positive integer up to 150000.' });
-    }
-    if (!accountReference) {
-      return res.status(400).json({ error: 'accountReference contains invalid characters.' });
-    }
-
-    // In Daraja Sandbox, Tanzanian numbers (255...) return 400.002.02 Invalid PhoneNumber.
-    // Substitute 255 numbers with Daraja Sandbox test number (254708374149) in sandbox mode,
-    // while preserving original phoneNumber in logs and production mode.
-    const darajaPartyPhone = resolveDarajaPhoneNumber(phoneNumber, isSandbox);
-
-    const { shortcode, passkey, callbackUrl } = getConfig();
-    const token = await getAccessToken();
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
-
-    if (!timestamp || timestamp.length !== 14) {
-      console.error('[STK Push Error] Invalid timestamp generated:', timestamp);
-      return res.status(500).json({ error: 'Failed to generate valid M-Pesa timestamp.' });
-    }
-
-    const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString('base64');
-    const payload = {
-      BusinessShortCode: shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: 'CustomerPayBillOnline',
-      Amount: Number(amount),
-      PartyA: darajaPartyPhone,
-      PartyB: shortcode,
-      PhoneNumber: darajaPartyPhone,
-      CallBackURL: callbackUrl,
-      AccountReference: accountReference,
-      TransactionDesc: 'Malipo ya Kibubu',
-    };
-
-    console.log('[STK Push Request] Sending payload to Daraja:', {
-      endpoint: `${mpesaBaseUrl}/mpesa/stkpush/v1/processrequest`,
-      shortcode,
-      phoneNumber,
-      darajaPartyPhone,
-      isSandbox,
-      amount: Number(amount),
-      accountReference,
-      callbackUrl,
-    });
-
-    const response = await axios.post(
-      `${mpesaBaseUrl}/mpesa/stkpush/v1/processrequest`,
-      payload,
-      { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 },
-    );
-    const result = response.data;
-    console.log('[STK Push Success] Daraja response:', result);
-
-    if (result.CheckoutRequestID) {
-      const db = getFirestore();
-      if (db) {
-        try {
-          await db.collection('mpesaOrders').doc(result.CheckoutRequestID).set({
-            status: 'PENDING',
-            phoneNumber,
-            amount: Number(amount),
-            accountReference,
-            merchantRequestId: result.MerchantRequestID ?? null,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        } catch (dbError) {
-          console.warn('[Firebase] Skipping DB write - error writing to Firestore:', dbError.message);
-        }
-      }
-    }
-    return res.status(200).json(result);
-  } catch (error) {
-    const status = error.response?.status || error.status || 500;
-    const darajaData = error.response?.data || error.details;
-
-    console.error('[STK Push Error] Details:', {
-      status,
-      message: error.message,
-      darajaResponse: darajaData,
-    });
-
-    const darajaErrorMessage =
-      darajaData?.errorMessage ||
-      darajaData?.ResponseDescription ||
-      darajaData?.error ||
-      error.message ||
-      'Failed to initiate STK Push';
-
-    return res.status(status).json({
-      error: darajaErrorMessage,
-      details: darajaData || null,
-      errorCode: darajaData?.errorCode || null,
-      requestId: darajaData?.requestId || null,
-    });
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'Request body must be valid JSON.' });
   }
-});
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large.' });
+  }
 
-app.post('/api/v1/mpesa-callback', async (req, res) => {
-const callbackData = req.body?.Body?.stkCallback;
-try {
-  if (!callbackData?.CheckoutRequestID) {
-    return res.status(400).json({ ResultCode: 1, ResultDesc: 'Invalid callback' });
-  }
-  const db = getFirestore();
-  if (db) {
-    const orderRef = db.collection('mpesaOrders').doc(callbackData.CheckoutRequestID);
-    const orderSnapshot = await orderRef.get();
-    if (!orderSnapshot.exists) {
-      console.warn(`Ignoring callback for unknown checkout: ${callbackData.CheckoutRequestID}`);
-      return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-    if (callbackData.ResultCode === 0) {
-      const items = callbackData.CallbackMetadata?.Item ?? [];
-      const metadata = Object.fromEntries(items.map((item) => [item.Name, item.Value]));
-      await orderRef.set({
-        status: 'PAID',
-        amount: metadata.Amount ?? null,
-        mpesaReceiptNumber: metadata.MpesaReceiptNumber ?? null,
-        phoneNumber: metadata.PhoneNumber ?? null,
-        resultCode: callbackData.ResultCode,
-        resultDesc: callbackData.ResultDesc ?? null,
-        paidAt: admin ? admin.firestore.FieldValue.serverTimestamp() : new Date(),
-      }, { merge: true });
-    } else {
-      await orderRef.set({
-        status: 'FAILED',
-        resultCode: callbackData.ResultCode,
-        resultDesc: callbackData.ResultDesc ?? 'Payment failed',
-        failedAt: admin ? admin.firestore.FieldValue.serverTimestamp() : new Date(),
-      }, { merge: true });
-    }
-  }
-  return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
-  } catch (error) {
-    console.error('M-Pesa callback error:', error.message);
-    return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
-  }
+  console.error('[Server Error]', err.message);
+  return res.status(status).json({ error: err.message || 'Internal server error.' });
 });
 
 if (require.main === module) {
