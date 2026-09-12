@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="sw">
+
 <head>
   <meta charset="UTF-8">
   <title>Kibubu M-Pesa Test Dashboard</title>
@@ -13,6 +14,7 @@
       display: flex;
       justify-content: center;
     }
+
     .container {
       width: 100%;
       max-width: 650px;
@@ -20,8 +22,9 @@
       border: 1px solid #30363d;
       border-radius: 12px;
       padding: 24px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     }
+
     h1 {
       margin-top: 0;
       color: #58a6ff;
@@ -30,6 +33,7 @@
       align-items: center;
       gap: 10px;
     }
+
     .badge {
       font-size: 0.75rem;
       padding: 3px 8px;
@@ -37,6 +41,7 @@
       color: #fff;
       border-radius: 999px;
     }
+
     label {
       display: block;
       margin-top: 14px;
@@ -44,6 +49,7 @@
       font-size: 0.9rem;
       color: #8b949e;
     }
+
     input {
       width: 100%;
       box-sizing: border-box;
@@ -54,15 +60,18 @@
       color: #c9d1d9;
       font-size: 1rem;
     }
+
     input:focus {
       outline: none;
       border-color: #58a6ff;
     }
+
     .btn-group {
       display: flex;
       gap: 10px;
       margin-top: 20px;
     }
+
     button {
       flex: 1;
       padding: 12px;
@@ -72,21 +81,26 @@
       cursor: pointer;
       font-size: 0.95rem;
     }
+
     .btn-primary {
       background: #238636;
       color: #ffffff;
     }
+
     .btn-primary:hover {
       background: #2ea043;
     }
+
     .btn-secondary {
       background: #21262d;
       color: #58a6ff;
       border: 1px solid #30363d;
     }
+
     .btn-secondary:hover {
       background: #30363d;
     }
+
     pre {
       margin-top: 20px;
       background: #0d1117;
@@ -99,6 +113,7 @@
       max-height: 250px;
       color: #7ee787;
     }
+
     .status-pill {
       display: inline-block;
       margin-top: 10px;
@@ -108,74 +123,78 @@
     }
   </style>
 </head>
+
 <body>
 
-<div class="container">
-  <h1>Kibubu M-Pesa Test Center <span class="badge">SANDBOX</span></h1>
-  <p style="color:#8b949e; font-size:0.9rem;">Fanya majaribio ya M-Pesa STK Push moja kwa moja.</p>
+  <div class="container">
+    <h1>Kibubu M-Pesa Test Center <span class="badge">SANDBOX</span></h1>
+    <p style="color:#8b949e; font-size:0.9rem;">Fanya majaribio ya M-Pesa STK Push moja kwa moja.</p>
 
-  <label for="phone">Nambari ya Simu (M-Pesa format: 2557XXXXXXXX au 2547XXXXXXXX)</label>
-  <input type="text" id="phone" value="255712345678" />
-  <small style="color: #8b949e; display:block; margin-top:4px;">Kumbuka: Kwenye Sandbox mode, namba yoyote ya test ya Tanzania (<code>255...</code>) inabadilishwa kuwa <code>254708374149</code> kiotomatiki na server ili kuzuia hitilafu ya Daraja Sandbox.</small>
+    <label for="phone">Nambari ya Simu (M-Pesa format: 2557XXXXXXXX au 2547XXXXXXXX)</label>
+    <input type="text" id="phone" value="255712345678" />
+    <small style="color: #8b949e; display:block; margin-top:4px;">Kumbuka: Kwenye Sandbox mode, namba yoyote ya test ya
+      Tanzania (<code>255...</code>) inabadilishwa kuwa <code>254708374149</code> kiotomatiki na server ili kuzuia
+      hitilafu ya Daraja Sandbox.</small>
 
-  <label for="amount">Kiasi (TZS)</label>
-  <input type="number" id="amount" value="1000" />
+    <label for="amount">Kiasi (TZS)</label>
+    <input type="number" id="amount" value="1000" />
 
-  <label for="ref">Kumbukumbu ya Malipo (Account Reference)</label>
-  <input type="text" id="ref" value="KIBUBU_TEST" />
+    <label for="ref">Kumbukumbu ya Malipo (Account Reference)</label>
+    <input type="text" id="ref" value="KIBUBU_TEST" />
 
-  <div class="btn-group">
-    <button class="btn-secondary" onclick="checkHealth()">1. Check Health (/health)</button>
-    <button class="btn-primary" onclick="sendStkPush()">2. Tuma STK Push</button>
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="checkHealth()">1. Check Health (/health)</button>
+      <button class="btn-primary" onclick="sendStkPush()">2. Tuma STK Push</button>
+    </div>
+
+    <div id="status"></div>
+    <pre id="log">// Matokeo ya test yataonekana hapa...</pre>
   </div>
 
-  <div id="status"></div>
-  <pre id="log">// Matokeo ya test yataonekana hapa...</pre>
-</div>
+  <script>
+    const logEl = document.getElementById('log');
+    const statusEl = document.getElementById('status');
 
-<script>
-  const logEl = document.getElementById('log');
-  const statusEl = document.getElementById('status');
-
-  async function checkHealth() {
-    logEl.textContent = 'Inapima Server Health...';
-    try {
-      const res = await fetch('/health');
-      const data = await res.json();
-      logEl.textContent = JSON.stringify(data, null, 2);
-      statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Server ipo hewani (OK)</span>';
-    } catch (e) {
-      logEl.textContent = 'Hitilafu: ' + e.message;
-      statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Imeshindwa kufikia server</span>';
-    }
-  }
-
-  async function sendStkPush() {
-    const phoneNumber = document.getElementById('phone').value.trim();
-    const amount = Number(document.getElementById('amount').value);
-    const accountReference = document.getElementById('ref').value.trim();
-
-    logEl.textContent = 'Inatuma ombi la STK Push kwenda Safaricom Sandbox...';
-    statusEl.innerHTML = '<span class="status-pill" style="background:#d29922;color:black">Inatuma ombi...</span>';
-
-    try {
-      const res = await fetch('/api/v1/stkpush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, amount, accountReference })
-      });
-      const data = await res.json();
-      logEl.textContent = JSON.stringify(data, null, 2);
-      if (res.ok) {
-        statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Ombi Limekubaliwa! Status: ' + res.status + '</span>';
-      } else {
-        statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Hitilafu! Status: ' + res.status + '</span>';
+    async function checkHealth() {
+      logEl.textContent = 'Inapima Server Health...';
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        logEl.textContent = JSON.stringify(data, null, 2);
+        statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Server ipo hewani (OK)</span>';
+      } catch (e) {
+        logEl.textContent = 'Hitilafu: ' + e.message;
+        statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Imeshindwa kufikia server</span>';
       }
-    } catch (e) {
-      logEl.textContent = 'Hitilafu ya mtandao au server: ' + e.message;
-      statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Network Error</span>';
     }
-  }
-</script>
+
+    async function sendStkPush() {
+      const phoneNumber = document.getElementById('phone').value.trim();
+      const amount = Number(document.getElementById('amount').value);
+      const accountReference = document.getElementById('ref').value.trim();
+
+      logEl.textContent = 'Inatuma ombi la STK Push kwenda Safaricom Sandbox...';
+      statusEl.innerHTML = '<span class="status-pill" style="background:#d29922;color:black">Inatuma ombi...</span>';
+
+      try {
+        const res = await fetch('/api/v1/stkpush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber, amount, accountReference })
+        });
+        const data = await res.json();
+        logEl.textContent = JSON.stringify(data, null, 2);
+        if (res.ok) {
+          statusEl.innerHTML = '<span class="status-pill" style="background:#238636;color:white">Ombi Limekubaliwa! Status: ' + res.status + '</span>';
+        } else {
+          statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Hitilafu! Status: ' + res.status + '</span>';
+        }
+      } catch (e) {
+        logEl.textContent = 'Hitilafu ya mtandao au server: ' + e.message;
+        statusEl.innerHTML = '<span class="status-pill" style="background:#da3633;color:white">Network Error</span>';
+      }
+    }
+  </script>
 </body>
+
 </html>

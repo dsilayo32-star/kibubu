@@ -1,16 +1,10 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
-const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 const express = require('express');
 const cors = require('cors');
-let admin = null;
-try {
-  admin = require('firebase-admin');
-} catch {
-  // firebase-admin module optional
-}
+const { router } = require('./routes');
+const { getFirestore } = require('./firebase');
 const {
   normalizePhone,
   resolveDarajaPhoneNumber,
@@ -18,6 +12,10 @@ const {
   positiveAmount,
   safeReference,
 } = require('./validation');
+
+// --- Composition root -------------------------------------------------------
+// server.js only wires middleware, static assets and the API router together.
+// Business logic lives in config/ daraja/ orders/ routes/.
 
 const app = express();
 app.use(cors());
@@ -45,117 +43,7 @@ app.get(['/dashboard', '/test'], (_req, res) => {
 
 app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 
-const mpesaBaseUrl = process.env.MPESA_ENV === 'production'
-  ? 'https://api.safaricom.co.ke'
-  : 'https://sandbox.safaricom.co.ke';
-
-let firestore = null;
-let firebaseInitialized = false;
-
-function getFirestore() {
-  if (firebaseInitialized) return firestore;
-  firebaseInitialized = true;
-
-  if (!admin) {
-    console.warn('[Firebase] Skipping DB write - firebase-admin not installed');
-    return null;
-  }
-
-  // Determine credential path: check GOOGLE_APPLICATION_CREDENTIALS or standard firebase-admin.json / service-account.json
-  const envCredPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  const candidates = [
-    envCredPath,
-    envCredPath ? path.resolve(__dirname, '..', envCredPath) : null,
-    path.resolve(__dirname, '../firebase-admin.json'),
-    path.resolve(__dirname, '../service-account.json'),
-  ].filter(Boolean);
-
-  let validCredFile = null;
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      try {
-        const raw = fs.readFileSync(candidate, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (parsed && (parsed.project_id || parsed.type === 'service_account')) {
-          validCredFile = candidate;
-          break;
-        }
-      } catch {
-        // Invalid json format in candidate file
-      }
-    }
-  }
-
-  if (!validCredFile) {
-    console.warn('[Firebase] Skipping DB write - firebase-admin.json not configured');
-    return null;
-  }
-
-  try {
-    if (admin.apps.length === 0) {
-      admin.initializeApp({
-        credential: admin.credential.cert(validCredFile),
-      });
-    }
-    firestore = admin.firestore();
-    return firestore;
-  } catch (err) {
-    console.warn('[Firebase] Skipping DB write - firebase-admin.json not configured (init error:', err.message, ')');
-    return null;
-  }
-}
-
-function getConfig() {
-  const consumerKey = process.env.MPESA_CONSUMER_KEY || process.env.DARAJA_CONSUMER_KEY;
-  const consumerSecret = process.env.MPESA_CONSUMER_SECRET || process.env.DARAJA_CONSUMER_SECRET;
-  const shortcode = process.env.MPESA_SHORTCODE;
-  const passkey = process.env.MPESA_PASSKEY;
-  const callbackUrl = process.env.CALLBACK_URL;
-
-  const missing = [];
-  if (!consumerKey) missing.push('MPESA_CONSUMER_KEY (or DARAJA_CONSUMER_KEY)');
-  if (!consumerSecret) missing.push('MPESA_CONSUMER_SECRET (or DARAJA_CONSUMER_SECRET)');
-  if (!shortcode) missing.push('MPESA_SHORTCODE');
-  if (!passkey) missing.push('MPESA_PASSKEY');
-  if (!callbackUrl) missing.push('CALLBACK_URL');
-
-  if (missing.length > 0) {
-    const errorMsg = `Missing M-Pesa environment configuration: ${missing.join(', ')}`;
-    console.error(`[M-Pesa Config Error] ${errorMsg}`);
-    throw new Error(errorMsg);
-  }
-
-  if (!callbackUrl.startsWith('https://')) {
-    const errorMsg = 'CALLBACK_URL must be a live HTTPS endpoint.';
-    console.error(`[M-Pesa Config Error] ${errorMsg} Got: ${callbackUrl}`);
-    throw new Error(errorMsg);
-  }
-
-  return { consumerKey, consumerSecret, shortcode, passkey, callbackUrl };
-}
-
-async function getAccessToken() {
-  const { consumerKey, consumerSecret } = getConfig();
-  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-  try {
-    const response = await axios.get(
-      `${mpesaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`,
-      { headers: { Authorization: `Basic ${auth}` }, timeout: 15000 },
-    );
-    return response.data.access_token;
-  } catch (error) {
-    console.error('[M-Pesa OAuth Error] Failed to generate access token:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    const darajaError = error.response?.data?.errorMessage || error.response?.data?.error || error.message;
-    const err = new Error(`OAuth token generation failed: ${darajaError}`);
-    err.status = error.response?.status || 500;
-    err.details = error.response?.data;
-    throw err;
-  }
-}
+app.use(router);
 
 app.get('/api/status', (_req, res) => res.json({
   status: 'running',
