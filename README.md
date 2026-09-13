@@ -21,11 +21,33 @@ Backend iko kwenye `server/`. Soma [server/README.md](server/README.md) kwa
 kwa URL ya backend. Secrets za Daraja hazipaswi kuwekwa kwenye Flutter app.
 
 ## Tests
+```bash
+flutter test      # 76/76
+flutter analyze   # No issues found
+```
+
+Backend:
 
 ```bash
-flutter test
-flutter analyze
+cd server && npm test   # 18/18
 ```
+
+## Malipo (M-Pesa) — hatua ya mwisho
+App iko tayari kwa majaribio ya malipo: fomu ya simu inakaguliwa, kiwango cha
+kuweka akiba ni TSh 1,000–1,000,000, na hali ya malipo huthibitishwa kwa callback.
+Kinachobaki ni credentials halali za Daraja Sandbox (zilizopo kwenye `server/.env`
+zimepitwa na muda) — angalia [RUN.md](RUN.md) hatua 6:
+
+```powershell
+cd server
+node scripts/set-credentials.js <CONSUMER_KEY> <CONSUMER_SECRET>
+npm start
+node scripts/test-stk.js 0754123456 1000
+```
+
+Uthibitisho wa callback unahitaji backend inayofikika hadharani (Render) na
+Firebase Admin service account; bila hivyo oda haihifadhiwi na malipo yanabaki
+`PENDING`.
 
 ## Release Android
 

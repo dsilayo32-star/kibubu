@@ -86,7 +86,7 @@ class PaymentService {
 
   static String activeBaseUrl = _configuredUrl.isNotEmpty
       ? _configuredUrl
-      : 'https://kibubu.onrender.com';
+      : 'https://kibubu-backend.onrender.com';
 
   static String _safeAccountReference(String goalName) {
     final normalized = (goalName.isEmpty ? 'KIBUBU' : goalName).replaceAll(
@@ -127,6 +127,7 @@ class PaymentService {
 
   static bool isSupportedPhone(String rawPhone) {
     final clean = rawPhone.replaceAll(RegExp(r'\s+|-'), '');
+    // Namba za Tanzania pekee: 0XXXXXXXXX / 255XXXXXXXXX / +255XXXXXXXXX.
     return RegExp(r'^(0\d{9}|255\d{9}|\+255\d{9})$').hasMatch(clean);
   }
 

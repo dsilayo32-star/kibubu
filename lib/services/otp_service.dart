@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Huduma ya SMS OTP ya Firebase Phone Authentication.
@@ -5,29 +7,57 @@ class OtpService {
   static String? _verificationId;
   static int? _resendToken;
 
+  /// Hutuma OTP na kukamilika pindi Firebase inapothibitisha ombi.
+  ///
+  /// `verifyPhoneNumber()` haina Future inayosubiriwa — matokeo huja kupitia
+  /// callbacks. Hivyo kosa la `verificationFailed` linakamatwa hapa na
+  /// kurudishwa kama kosa la Future, badala ya kutupwa ndani ya callback
+  /// (ambako linafichwa na UI kubaki kwenye "Inatuma...").
   static Future<void> sendOtp(
     String phone, {
     required void Function() onCodeSent,
   }) async {
     final normalizedPhone = _normalizePhone(phone);
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: normalizedPhone,
-      forceResendingToken: _resendToken,
-      verificationCompleted: (credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (error) {
-        throw OtpException(error.message ?? 'SMS OTP imeshindikana.');
-      },
-      codeSent: (verificationId, resendToken) {
-        _verificationId = verificationId;
-        _resendToken = resendToken;
-        onCodeSent();
-      },
-      codeAutoRetrievalTimeout: (verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+    final completer = Completer<void>();
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: normalizedPhone,
+        forceResendingToken: _resendToken,
+        verificationCompleted: (credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+        },
+        verificationFailed: (error) {
+          if (!completer.isCompleted) {
+            completer.completeError(
+              OtpException(
+                error.message ??
+                    'SMS OTP imeshindikana. Hakikisha namba ni sahihi.',
+              ),
+            );
+          }
+        },
+        codeSent: (verificationId, resendToken) {
+          _verificationId = verificationId;
+          _resendToken = resendToken;
+          if (!completer.isCompleted) completer.complete();
+          onCodeSent();
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } on OtpException {
+      rethrow;
+    } catch (_) {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          const OtpException('SMS OTP haikupatikana. Jaribu tena baadaye.'),
+        );
+      }
+    }
+
+    return completer.future.then((_) => null);
   }
 
   static Future<bool> verifyOtp(String inputOtp) async {

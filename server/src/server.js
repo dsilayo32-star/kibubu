@@ -8,7 +8,6 @@ const { getFirestore } = require('./firebase');
 const {
   normalizePhone,
   resolveDarajaPhoneNumber,
-  DEFAULT_SANDBOX_PHONE,
   positiveAmount,
   safeReference,
 } = require('./validation');
@@ -31,6 +30,7 @@ app.get('/', (req, res) => {
       health: '/health',
       status: '/api/status',
       stkPush: '/api/v1/stkpush',
+      stkOrderStatus: '/api/v1/order-status?checkoutRequestId=...',
       callback: '/api/v1/mpesa-callback',
       testDashboard: '/dashboard',
     },
@@ -75,7 +75,6 @@ module.exports = {
   getFirestore,
   normalizePhone,
   resolveDarajaPhoneNumber,
-  DEFAULT_SANDBOX_PHONE,
   positiveAmount,
   safeReference,
 };

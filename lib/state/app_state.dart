@@ -147,7 +147,7 @@ Future<void> loadData() async {
   if (legacyPin != null && legacyPin.isNotEmpty) {
     if (_pinHash.isEmpty) {
       _pinSalt = _pinSalt.isEmpty
-          ? DateTime.now().microsecondsSinceEpoch.toString()
+          ? SecurityService.generateSalt()
           : _pinSalt;
       _pinHash = SecurityService.hashWith(_pinSalt, legacyPin);
       await _writePinCredentials(prefs);
@@ -236,7 +236,7 @@ Future<void> loadData() async {
 /// Weka PIN mpya (inahifadhiwa kama hash pekee).
 Future<void> setPin(String plainPin) async {
   if (_pinSalt.isEmpty) {
-    _pinSalt = DateTime.now().microsecondsSinceEpoch.toString();
+    _pinSalt = SecurityService.generateSalt();
   }
   _pinHash = SecurityService.hashWith(_pinSalt, plainPin);
   final prefs = await SharedPreferences.getInstance();

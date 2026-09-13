@@ -22,4 +22,8 @@ class SecurityService {
     final bytes = utf8.encode('$salt:$pin');
     return sha256.convert(bytes).toString();
   }
+
+  /// Tengeneza salt mpya ya kipekee kwa kila akaunti.
+  static String generateSalt() =>
+      DateTime.now().microsecondsSinceEpoch.toString();
 }

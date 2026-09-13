@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test"
+    "test": "node --test test/",
+    "set-credentials": "node scripts/set-credentials.js",
+    "test-stk": "node scripts/test-stk.js"
   },
   "dependencies": {
     "axios": "^1.8.4",

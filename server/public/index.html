@@ -130,15 +130,14 @@
     <h1>Kibubu M-Pesa Test Center <span class="badge">SANDBOX</span></h1>
     <p style="color:#8b949e; font-size:0.9rem;">Fanya majaribio ya M-Pesa STK Push moja kwa moja.</p>
 
-    <label for="phone">Nambari ya Simu (M-Pesa format: 2557XXXXXXXX au 2547XXXXXXXX)</label>
+    <label for="phone">Nambari ya Simu ya Tanzania (M-Pesa format: 2557XXXXXXXX au 07XXXXXXXX)</label>
     <input type="tel" id="phone" name="phone" inputmode="numeric" autocomplete="tel"
       aria-describedby="phone-hint" value="255712345678" />
-    <small id="phone-hint" style="color: #8b949e; display:block; margin-top:4px;">Kumbuka: Kwenye Sandbox mode, namba yoyote ya test ya
-      Tanzania (<code>255...</code>) inabadilishwa kuwa <code>254708374149</code> kiotomatiki na server ili kuzuia
-      hitilafu ya Daraja Sandbox.</small>
+    <small id="phone-hint" style="color: #8b949e; display:block; margin-top:4px;">Tumia namba ya Tanzania pekee. Server itaituma kwa
+      Daraja kama ilivyo (<code>2557XXXXXXXX</code>).</small>
 
     <label for="amount">Kiasi (TZS)</label>
-    <input type="number" id="amount" name="amount" min="1" max="150000" step="1" inputmode="numeric" value="1000" />
+    <input type="number" id="amount" name="amount" min="1" max="1000000" step="1" inputmode="numeric" value="1000" />
 
     <label for="ref">Kumbukumbu ya Malipo (Account Reference)</label>
     <input type="text" id="ref" name="accountReference" maxlength="20" autocomplete="off" value="KIBUBU_TEST" />
@@ -147,6 +146,14 @@
       <button class="btn-secondary" onclick="checkHealth()">1. Check Health (/health)</button>
       <button class="btn-primary" onclick="sendStkPush()">2. Tuma STK Push</button>
     </div>
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="checkOrder()">3. Angalia Hali ya Oda (mpesaOrders)</button>
+    </div>
+    <p id="callback-info" style="color:#8b949e; font-size:0.85rem; margin-top:16px;">
+      Baada ya kubonyeza STK Push, thibitisha kwenye simu. Safaricom hutuma matokeo kwa
+      <code>POST /api/v1/mpesa-callback</code> — hali ya malipo inasomwa kwa
+      <code>CheckoutRequestID</code>.
+    </p>
 
     <div id="status" role="status" aria-live="polite"></div>
     <pre id="log" aria-live="polite">// Matokeo ya test yataonekana hapa...</pre>
@@ -162,6 +169,21 @@
       bad: 'background:#da3633;color:white',
       wait: 'background:#d29922;color:black'
     };
+
+    // CheckoutRequestID ya ombi la mwisho — hutumika kuangalia hali ya oda.
+    let lastCheckoutRequestId = null;
+
+    // Onyesha callback URL halisi ya server hii badala ya maandishi ya mfano.
+    // Tahadhari: ndani ya script hakuna herufi ya kufungua tag moja kwa moja —
+    // HTML parser huona mwanzo wa tag na kumaliza script hapo, hivyo function
+    // zinazofuata hazitafanuliwa. Tunaitengeneza kwa code point 60.
+    const LT = String.fromCharCode(60);
+    const GT = String.fromCharCode(62);
+    document.getElementById('callback-info').innerHTML =
+      'Baada ya kubonyeza STK Push, thibitisha kwenye simu. Safaricom hutuma matokeo kwa ' +
+      LT + 'code' + GT + 'POST ' + location.origin + '/api/v1/mpesa-callback' + LT + '/code' + GT +
+      ' — hali ya malipo inasomwa kwa ' +
+      LT + 'code' + GT + 'CheckoutRequestID' + LT + '/code' + GT + '.';
 
     function showStatus(message, kind) {
       statusEl.innerHTML = '';
@@ -192,10 +214,17 @@
         if (typeof data.CustomerMessage === 'string' && data.CustomerMessage) return data.CustomerMessage;
       }
       if (raw) {
-        const stripped = raw.split('<').map(function (chunk) {
-          const end = chunk.indexOf('>');
-          return end === -1 ? chunk : chunk.slice(end + 1);
-        }).join(' ').split(/\s+/).join(' ').trim();
+        // Huondoa tags za HTML kwa kukata kati ya LT na GT (tazama LT juu).
+        const stripped = raw
+          .split(LT)
+          .map(function (chunk) {
+            const end = chunk.indexOf(GT);
+            return end === -1 ? chunk : chunk.slice(end + 1);
+          })
+          .join(' ')
+          .split(/\s+/)
+          .join(' ')
+          .trim();
         if (stripped) return stripped.slice(0, 200);
       }
       return 'Server ilijibu kwa HTTP ' + res.status + ' bila maelezo.';
@@ -226,13 +255,13 @@
       // Number('') ni 0 na Number('abc') ni NaN. Server inazikataa zote mbili,
       // hivyo tuonyeshe kosa wazi kabla ya kutuma ombi.
       const amount = Number(amountRaw);
-      if (!amountRaw || !Number.isInteger(amount) || amount <= 0) {
+      if (!amountRaw || !Number.isInteger(amount) || amount === 0 || amount !== Math.abs(amount)) {
         logEl.textContent = 'Kiasi lazima kiwe nambari kamili kubwa kuliko 0.';
         showStatus('Kiasi batili', 'bad');
         return;
       }
-      if (amount > 150000) {
-        logEl.textContent = 'Kiasi kikubwa kupita kiasi. Kiwango cha juu ni TZS 150000.';
+      if (amount > 1000000) {
+        logEl.textContent = 'Kiasi kikubwa kupita kiasi. Kiwango cha juu ni TZS 1,000,000.';
         showStatus('Kiasi kikubwa mno', 'bad');
         return;
       }
@@ -254,6 +283,9 @@
         const { data, text } = await readResponse(res);
 
         if (res.ok) {
+          if (data && data.CheckoutRequestID) {
+            lastCheckoutRequestId = data.CheckoutRequestID;
+          }
           logEl.textContent = data
             ? JSON.stringify(data, null, 2)
             : text;
@@ -271,7 +303,32 @@
         showStatus('Network Error', 'bad');
       }
     }
-  </script>
+
+    // Huangalia kama oda ya STK ya mwisho ilishalipiwa (baada ya callback).
+    async function checkOrder() {
+      if (!lastCheckoutRequestId) {
+        showStatus('Hakuna ombi lililotumwa bado', 'bad');
+        logEl.textContent = 'Tuma STK Push kwanza.';
+        return;
+      }
+      const url = '/api/v1/order-status?checkoutRequestId=' + encodeURIComponent(lastCheckoutRequestId);
+      try {
+        const res = await fetch(url, { headers: { Accept: 'application/json'} });
+        const { data, text } = await readResponse(res);
+        logEl.textContent = data ? JSON.stringify(data, null, 2) : text;
+        if (res.ok && data && data.status === 'PAID') {
+          showStatus('Malipo yamethibitishwa (PAID)', 'ok');
+        } else if (res.ok && data) {
+          showStatus('Hali ya oda: ' + data.status, 'wait');
+        } else {
+          showStatus(errorMessage(data, res, text), 'bad');
+        }
+      } catch (e) {
+        logEl.textContent = 'Hitilafu ya mtandao au server: ' + e.message;
+        showStatus('Network Error', 'bad');
+      }
+    }
+ </script>
 </body>
 
 </html>

@@ -43,9 +43,11 @@ void main() {
       expect(PaymentService.calculateFee(500000), 500.0);
     });
 
-    test('isSupportedPhone() inakataa namba batili', () {
+    test('isSupportedPhone() inakubali namba za Tanzania pekee', () {
       expect(PaymentService.isSupportedPhone('0754123456'), isTrue);
       expect(PaymentService.isSupportedPhone('+255754123456'), isTrue);
+      expect(PaymentService.isSupportedPhone('255754123456'), isTrue);
+      expect(PaymentService.isSupportedPhone('254708374149'), isFalse);
       expect(PaymentService.isSupportedPhone('123'), isFalse);
     });
 

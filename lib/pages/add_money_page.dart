@@ -295,8 +295,17 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
                     color: selectedNetwork.color,
                   ),
                   helperText: 'Mtandao: ${selectedNetwork.title}',
+                  helperMaxLines: 3,
                   border: const OutlineInputBorder(),
                 ),
+                validator: (value) {
+                  final raw = value?.trim() ?? '';
+                  if (raw.isEmpty) return 'Weka nambari ya simu ya malipo.';
+                  if (!PaymentService.isSupportedPhone(raw)) {
+                    return 'Weka namba halali ya Tanzania (mf. 0754123456).';
+                  }
+                  return null;
+                },
                 onChanged: (val) {
                   setState(
                     () => selectedNetwork = PaymentService.detectNetwork(val),

@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  MAX_AMOUNT,
   normalizePhone,
   resolveDarajaPhoneNumber,
-  DEFAULT_SANDBOX_PHONE,
   positiveAmount,
   safeReference,
 } = require('../src/validation');
@@ -20,12 +20,19 @@ test('rejects invalid phone formats', () => {
   assert.equal(normalizePhone('255812345678'), null);
 });
 
-test('accepts only positive integer amounts within Daraja limit', () => {
+test('accepts only positive integer amounts within the Kibubu savings limit', () => {
   assert.equal(positiveAmount(1000), true);
   assert.equal(positiveAmount('150000'), true);
+  assert.equal(positiveAmount(MAX_AMOUNT), true);
   assert.equal(positiveAmount(0), false);
-  assert.equal(positiveAmount(150001), false);
+  assert.equal(positiveAmount(MAX_AMOUNT + 1), false);
   assert.equal(positiveAmount(10.5), false);
+});
+
+test('the app savings ceiling (TSh 1,000,000) is accepted end to end', () => {
+  // Kiasi cha juu kabisa kinachoruhusiwa na fomu ya "Weka Akiba" kwenye app.
+  assert.equal(positiveAmount(1000000), true);
+  assert.equal(positiveAmount(1000001), false);
 });
 
 test('sanitizes account references', () => {
@@ -34,14 +41,14 @@ test('sanitizes account references', () => {
   assert.equal(safeReference('<script>'), null);
 });
 
-test('substitutes 255 numbers with DEFAULT_SANDBOX_PHONE in sandbox mode', () => {
-  assert.equal(resolveDarajaPhoneNumber('255712345678', true), DEFAULT_SANDBOX_PHONE);
-  assert.equal(resolveDarajaPhoneNumber('254708374149', true), '254708374149');
+test('passes Tanzanian numbers through to Daraja unchanged', () => {
+  assert.equal(resolveDarajaPhoneNumber('255712345678'), '255712345678');
+  assert.equal(resolveDarajaPhoneNumber('255754123456'), '255754123456');
 });
 
-test('preserves original phone number in production mode', () => {
-  assert.equal(resolveDarajaPhoneNumber('255712345678', false), '255712345678');
-  assert.equal(resolveDarajaPhoneNumber('254708374149', false), '254708374149');
+test('resolveDarajaPhoneNumber returns null for an empty value', () => {
+  assert.equal(resolveDarajaPhoneNumber(''), null);
+  assert.equal(resolveDarajaPhoneNumber(null), null);
 });
 
 test('getFirestore gracefully returns null and logs warning if credentials missing', () => {

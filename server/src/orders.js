@@ -72,6 +72,35 @@ async function applyCallbackResult(callbackData) {
 }
 
 /**
+ * Reads the current state of an STK order, shaped for a compact JSON response.
+ * Returns null when the order is unknown or Firestore is unavailable.
+ */
+async function getOrderStatus(checkoutRequestId) {
+  const db = getFirestore();
+  if (!db) return null;
+
+  try {
+    const snapshot = await db.collection(COLLECTION).doc(checkoutRequestId).get();
+    if (!snapshot.exists) return null;
+
+    const data = snapshot.data() || {};
+    return {
+      checkoutRequestId,
+      status: data.status ?? STATUS.PENDING,
+      amount: data.amount ?? null,
+      phoneNumber: data.phoneNumber ?? null,
+      accountReference: data.accountReference ?? null,
+      mpesaReceiptNumber: data.mpesaReceiptNumber ?? null,
+      resultCode: data.resultCode ?? null,
+      resultDesc: data.resultDesc ?? null,
+    };
+  } catch (error) {
+    console.warn('[Firebase] Could not read order status:', error.message);
+    return null;
+  }
+}
+
+/**
  * Flattens Daraja's CallbackMetadata.Item[] into a plain { Name: Value } map.
  */
 function extractCallbackMetadata(callbackData) {
@@ -84,5 +113,6 @@ module.exports = {
   STATUS,
   createPendingOrder,
   applyCallbackResult,
+  getOrderStatus,
   extractCallbackMetadata,
 };

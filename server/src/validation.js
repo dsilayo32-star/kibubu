@@ -1,32 +1,24 @@
-function normalizePhone(phoneNumber, allowSandboxKenya = false) {
+function normalizePhone(phoneNumber) {
+  // Namba za Tanzania pekee zinaruhusiwa: 0XXXXXXXXX / 255XXXXXXXXX / +255XXXXXXXXX.
   const value = String(phoneNumber ?? '').replace(/[\s-]/g, '');
   if (/^07\d{8}$/.test(value)) return `255${value.slice(1)}`;
   if (/^2557\d{8}$/.test(value)) return value;
   if (/^\+2557\d{8}$/.test(value)) return value.slice(1);
-  if (allowSandboxKenya) {
-    if (/^2547\d{8}$/.test(value)) return value;
-    if (/^\+2547\d{8}$/.test(value)) return value.slice(1);
-    if (/^01\d{8}$/.test(value)) return `254${value.slice(1)}`;
-  }
   return null;
 }
 
-const DEFAULT_SANDBOX_PHONE = '254708374149';
-
-function resolveDarajaPhoneNumber(normalizedPhone, isSandbox = false) {
-  if (!normalizedPhone) return null;
-  if (isSandbox) {
-    if (normalizedPhone.startsWith('255')) {
-      return DEFAULT_SANDBOX_PHONE;
-    }
-    return normalizedPhone;
-  }
-  return normalizedPhone;
+function resolveDarajaPhoneNumber(normalizedPhone) {
+  // Namba za Tanzania zinatumwa kwa Daraja kama zilivyo (255XXXXXXXXX).
+  // Hatubadilishi kwenda namba ya majaribio ya Kenya.
+  return normalizedPhone || null;
 }
+
+// Kiwango cha juu cha kuweka akiba kinacholingana na app ya Kibubu (TSh 1,000,000).
+const MAX_AMOUNT = 1000000;
 
 function positiveAmount(value) {
   const amount = Number(value);
-  return Number.isInteger(amount) && amount > 0 && amount <= 150000;
+  return Number.isInteger(amount) && amount > 0 && amount <= MAX_AMOUNT;
 }
 
 function safeReference(value) {
@@ -35,9 +27,9 @@ function safeReference(value) {
 }
 
 module.exports = {
+  MAX_AMOUNT,
   normalizePhone,
   resolveDarajaPhoneNumber,
-  DEFAULT_SANDBOX_PHONE,
   positiveAmount,
   safeReference,
 };
