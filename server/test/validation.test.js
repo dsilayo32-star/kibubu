@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   MAX_AMOUNT,
   normalizePhone,
+  detectCountryCode,
   resolveDarajaPhoneNumber,
   positiveAmount,
   safeReference,
@@ -14,9 +15,23 @@ test('normalizes accepted Tanzanian mobile formats to 2557XXXXXXXX', () => {
   assert.equal(normalizePhone('255712345678'), '255712345678');
 });
 
+test('normalizes accepted Kenyan mobile formats to 254XXXXXXXXX', () => {
+  assert.equal(normalizePhone('0712345678'), '255712345678'); // Tanzanian 07 prefix takes priority
+  assert.equal(normalizePhone('0112345678'), '254112345678'); // Kenyan 01 prefix
+  assert.equal(normalizePhone('+254712345678'), '254712345678');
+  assert.equal(normalizePhone('254712345678'), '254712345678');
+  assert.equal(normalizePhone('254708374149'), '254708374149');
+});
+
+test('detectCountryCode correctly identifies 254 and 255', () => {
+  assert.equal(detectCountryCode('254712345678'), '254');
+  assert.equal(detectCountryCode('255712345678'), '255');
+  assert.equal(detectCountryCode('256712345678'), null);
+});
+
 test('rejects invalid phone formats', () => {
-  assert.equal(normalizePhone('071234567'), null);
-  assert.equal(normalizePhone('254712345678'), null);
+  assert.equal(normalizePhone('071234567'), null); // too short
+  assert.equal(normalizePhone('12345'), null);
   assert.equal(normalizePhone('255812345678'), null);
 });
 

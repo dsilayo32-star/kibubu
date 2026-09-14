@@ -1,15 +1,38 @@
 function normalizePhone(phoneNumber) {
-  // Namba za Tanzania pekee zinaruhusiwa: 0XXXXXXXXX / 255XXXXXXXXX / +255XXXXXXXXX.
+  // Inaruhusu namba za Tanzania (255) na Kenya (254).
+  // 12 digits total: 254XXXXXXXXX na 255XXXXXXXXX
   const value = String(phoneNumber ?? '').replace(/[\s-]/g, '');
-  if (/^07\d{8}$/.test(value)) return `255${value.slice(1)}`;
-  if (/^2557\d{8}$/.test(value)) return value;
-  if (/^\+2557\d{8}$/.test(value)) return value.slice(1);
+
+  // Tanzania: 07XXXXXXXX au 06XXXXXXXX -> 255XXXXXXXXX (12 digits)
+  if (/^0[67]\d{8}$/.test(value)) return `255${value.slice(1)}`;
+  if (/^255[67]\d{8}$/.test(value)) return value;
+  if (/^\+255[67]\d{8}$/.test(value)) return value.slice(1);
+
+  // Kenya: 07XXXXXXXX au 01XXXXXXXX -> 254XXXXXXXXX (12 digits)
+  if (/^0[17]\d{8}$/.test(value)) return `254${value.slice(1)}`;
+  // Kenya: 254XXXXXXXXX (12 digits total: 254 followed by 9 digits)
+  if (/^254[17]\d{8}$/.test(value)) return value;
+  if (/^\+254[17]\d{8}$/.test(value)) return value.slice(1);
+  // General Kenyan 12-digit format support:
+  if (/^254\d{9}$/.test(value)) return value;
+  if (/^\+254\d{9}$/.test(value)) return value.slice(1);
+
+  return null;
+}
+
+/**
+ * Detects the country code from normalized 12-digit phone number.
+ * @param {string} normalizedPhone
+ * @returns {'254'|'255'|null}
+ */
+function detectCountryCode(normalizedPhone) {
+  if (!normalizedPhone || typeof normalizedPhone !== 'string') return null;
+  if (normalizedPhone.startsWith('254')) return '254';
+  if (normalizedPhone.startsWith('255')) return '255';
   return null;
 }
 
 function resolveDarajaPhoneNumber(normalizedPhone) {
-  // Namba za Tanzania zinatumwa kwa Daraja kama zilivyo (255XXXXXXXXX).
-  // Hatubadilishi kwenda namba ya majaribio ya Kenya.
   return normalizedPhone || null;
 }
 
@@ -29,6 +52,7 @@ function safeReference(value) {
 module.exports = {
   MAX_AMOUNT,
   normalizePhone,
+  detectCountryCode,
   resolveDarajaPhoneNumber,
   positiveAmount,
   safeReference,

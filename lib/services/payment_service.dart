@@ -100,6 +100,12 @@ class PaymentService {
   /// Tambua mtandao kulingana na nambari ya simu.
   static MobileNetwork detectNetwork(String rawPhone) {
     final clean = rawPhone.replaceAll(RegExp(r'\s+|-'), '');
+    
+    // Angalia kama ni Kenya (M-Pesa Sandbox)
+    if (clean.startsWith('254') || clean.startsWith('+254')) {
+      return MobileNetwork.mpesa;
+    }
+
     String prefix = '';
     if (clean.startsWith('+255') && clean.length >= 6) {
       prefix = '0${clean.substring(4, 6)}';
@@ -127,8 +133,9 @@ class PaymentService {
 
   static bool isSupportedPhone(String rawPhone) {
     final clean = rawPhone.replaceAll(RegExp(r'\s+|-'), '');
-    // Namba za Tanzania pekee: 0XXXXXXXXX / 255XXXXXXXXX / +255XXXXXXXXX.
-    return RegExp(r'^(0\d{9}|255\d{9}|\+255\d{9})$').hasMatch(clean);
+    // Tanzania: 0XXXXXXXXX / 255XXXXXXXXX / +255XXXXXXXXX
+    // Kenya: 254XXXXXXXXX / +254XXXXXXXXX (Sandbox)
+    return RegExp(r'^(0[67]\d{8}|255[67]\d{8}|\+255[67]\d{8}|254\d{7,10}|\+254\d{7,10})$').hasMatch(clean);
   }
 
   /// Hesabu tozo ya mtandao kwa kiasi.
@@ -177,6 +184,9 @@ class PaymentService {
         cleanPhone = '255${cleanPhone.substring(1)}';
       }
 
+      // Kwa Kenya numbers ambazo hazina prefix ya 254 (ingawa validation hapo juu inazitaka),
+      // hapa tunatuma kama zilivyo zikishasafishwa.
+      
       try {
         final response = await http
             .post(

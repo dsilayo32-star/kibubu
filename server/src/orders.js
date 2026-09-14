@@ -1,12 +1,13 @@
 'use strict';
 
-const { getFirestore, serverTimestamp } = require('./firebase');
+const firebase = require('./firebase');
 
 const COLLECTION = 'mpesaOrders';
 
 const STATUS = Object.freeze({
   PENDING: 'PENDING',
-  PAID: 'PAID',
+  PAID: 'COMPLETED',
+  COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
 });
 
@@ -16,7 +17,7 @@ const STATUS = Object.freeze({
  * the client-facing STK response.
  */
 async function createPendingOrder({ checkoutRequestId, phoneNumber, amount, accountReference, merchantRequestId }) {
-  const db = getFirestore();
+  const db = firebase.getFirestore();
   if (!db) return;
 
   try {
@@ -26,7 +27,7 @@ async function createPendingOrder({ checkoutRequestId, phoneNumber, amount, acco
       amount: Number(amount),
       accountReference,
       merchantRequestId: merchantRequestId ?? null,
-      createdAt: serverTimestamp(),
+      createdAt: firebase.serverTimestamp(),
     });
   } catch (dbError) {
     console.warn('[Firebase] Skipping DB write - error writing to Firestore:', dbError.message);
@@ -34,37 +35,55 @@ async function createPendingOrder({ checkoutRequestId, phoneNumber, amount, acco
 }
 
 /**
- * Applies a Safaricom callback result to an existing order.
+ * Applies a callback result (from Safaricom or Vodacom) to an existing order.
  * Returns one of: 'ignored' (unknown checkout), 'updated', or 'skipped' (no DB).
  */
 async function applyCallbackResult(callbackData) {
-  const db = getFirestore();
+  const db = firebase.getFirestore();
   if (!db) return 'skipped';
 
-  const orderRef = db.collection(COLLECTION).doc(callbackData.CheckoutRequestID);
+  const checkoutRequestId = callbackData.CheckoutRequestID;
+  if (!checkoutRequestId) return 'ignored';
+
+  const orderRef = db.collection(COLLECTION).doc(checkoutRequestId);
   const orderSnapshot = await orderRef.get();
   if (!orderSnapshot.exists) {
-    console.warn(`Ignoring callback for unknown checkout: ${callbackData.CheckoutRequestID}`);
+    console.warn(`Ignoring callback for unknown checkout: ${checkoutRequestId}`);
     return 'ignored';
   }
 
-  if (callbackData.ResultCode === 0) {
+  const isSuccess =
+    callbackData.ResultCode === 0 ||
+    callbackData.ResultCode === '0' ||
+    callbackData.output_ResponseCode === 'INS-0';
+
+  if (isSuccess) {
     const metadata = extractCallbackMetadata(callbackData);
     await orderRef.set({
-      status: STATUS.PAID,
-      amount: metadata.Amount ?? null,
-      mpesaReceiptNumber: metadata.MpesaReceiptNumber ?? null,
-      phoneNumber: metadata.PhoneNumber ?? null,
-      resultCode: callbackData.ResultCode,
-      resultDesc: callbackData.ResultDesc ?? null,
-      paidAt: serverTimestamp(),
+      status: STATUS.COMPLETED,
+      amount: metadata.Amount ?? callbackData.amount ?? callbackData.output_Amount ?? null,
+      mpesaReceiptNumber:
+        metadata.MpesaReceiptNumber ??
+        callbackData.output_TransactionID ??
+        callbackData.MpesaReceiptNumber ??
+        null,
+      phoneNumber: metadata.PhoneNumber ?? callbackData.phoneNumber ?? null,
+      resultCode: callbackData.ResultCode ?? callbackData.output_ResponseCode ?? 0,
+      resultDesc:
+        callbackData.ResultDesc ??
+        callbackData.output_ResponseDesc ??
+        'Transaction completed successfully',
+      paidAt: firebase.serverTimestamp(),
     }, { merge: true });
   } else {
     await orderRef.set({
       status: STATUS.FAILED,
-      resultCode: callbackData.ResultCode,
-      resultDesc: callbackData.ResultDesc ?? 'Payment failed',
-      failedAt: serverTimestamp(),
+      resultCode: callbackData.ResultCode ?? callbackData.output_ResponseCode ?? 1,
+      resultDesc:
+        callbackData.ResultDesc ??
+        callbackData.output_ResponseDesc ??
+        'Payment failed',
+      failedAt: firebase.serverTimestamp(),
     }, { merge: true });
   }
 
@@ -72,11 +91,29 @@ async function applyCallbackResult(callbackData) {
 }
 
 /**
+ * Applies Vodacom OpenAPI webhook / callback specifically.
+ */
+async function applyVodacomCallbackResult(vodacomData) {
+  const checkoutRequestId =
+    vodacomData.CheckoutRequestID ||
+    vodacomData.output_ConversationID ||
+    vodacomData.output_ThirdPartyConversationID;
+
+  return applyCallbackResult({
+    CheckoutRequestID: checkoutRequestId,
+    output_ResponseCode: vodacomData.output_ResponseCode,
+    output_ResponseDesc: vodacomData.output_ResponseDesc,
+    output_TransactionID: vodacomData.output_TransactionID,
+    amount: vodacomData.input_Amount || vodacomData.output_Amount,
+  });
+}
+
+/**
  * Reads the current state of an STK order, shaped for a compact JSON response.
  * Returns null when the order is unknown or Firestore is unavailable.
  */
 async function getOrderStatus(checkoutRequestId) {
-  const db = getFirestore();
+  const db = firebase.getFirestore();
   if (!db) return null;
 
   try {
@@ -113,6 +150,7 @@ module.exports = {
   STATUS,
   createPendingOrder,
   applyCallbackResult,
+  applyVodacomCallbackResult,
   getOrderStatus,
   extractCallbackMetadata,
 };

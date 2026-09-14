@@ -302,7 +302,7 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
                   final raw = value?.trim() ?? '';
                   if (raw.isEmpty) return 'Weka nambari ya simu ya malipo.';
                   if (!PaymentService.isSupportedPhone(raw)) {
-                    return 'Weka namba halali ya Tanzania (mf. 0754123456).';
+                    return 'Weka namba halali ya Tanzania au Kenya (Sandbox).';
                   }
                   return null;
                 },

@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -21,7 +22,33 @@ app.use(cors());
 app.options('*', cors());
 app.use(express.json({ limit: '32kb' }));
 
+const webBuildPath = path.join(__dirname, '../../build/web');
+const hasWebBuild = fs.existsSync(webBuildPath);
+
+if (hasWebBuild) {
+  app.use(express.static(webBuildPath));
+}
+
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Kibubu M-Pesa API',
+    message: 'Kibubu Backend API is running',
+    endpoints: {
+      health: '/health',
+      status: '/api/status',
+      stkPush: '/api/v1/stkpush',
+      stkOrderStatus: '/api/v1/order-status?checkoutRequestId=...',
+      callback: '/api/v1/mpesa-callback',
+      testDashboard: '/dashboard',
+    },
+  });
+});
+
 app.get('/', (req, res) => {
+  if (hasWebBuild && fs.existsSync(path.join(webBuildPath, 'index.html'))) {
+    return res.sendFile(path.join(webBuildPath, 'index.html'));
+  }
   res.json({
     status: 'online',
     service: 'Kibubu M-Pesa API',
@@ -45,6 +72,17 @@ app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 
 // All API routes live in ./routes.
 app.use(router);
+
+// If client route not caught by API or dashboard, serve Flutter SPA if available
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health' || req.path === '/dashboard') {
+    return next();
+  }
+  if (hasWebBuild && fs.existsSync(path.join(webBuildPath, 'index.html'))) {
+    return res.sendFile(path.join(webBuildPath, 'index.html'));
+  }
+  return next();
+});
 
 // JSON error handler, registered last so it catches anything the router or
 // express.json() throws. Without it Express falls back to its HTML error page,

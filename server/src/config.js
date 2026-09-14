@@ -7,6 +7,10 @@
 const SANDBOX_BASE_URL = 'https://sandbox.safaricom.co.ke';
 const PRODUCTION_BASE_URL = 'https://api.safaricom.co.ke';
 
+// Vodacom Tanzania OpenAPI URLs
+const VODACOM_SANDBOX_BASE_URL = 'https://openapi.m-pesa.com:443/sandbox/ipg/v2/vodacomTZN';
+const VODACOM_PRODUCTION_BASE_URL = 'https://openapi.m-pesa.com:443/openapi/ipg/v2/vodacomTZN';
+
 // Safaricom posts the payment result here. Override with CALLBACK_URL in the
 // environment; this is only the last-resort default when it is unset.
 const DEFAULT_CALLBACK_URL = 'https://kibubu-backend.onrender.com/api/v1/mpesa-callback';
@@ -36,6 +40,36 @@ const isSandbox = () => !isProduction();
 
 function getMpesaBaseUrl() {
   return isProduction() ? PRODUCTION_BASE_URL : SANDBOX_BASE_URL;
+}
+
+const isVodacomProduction = () => (process.env.VODACOM_ENV || process.env.MPESA_ENV) === 'production';
+const isVodacomSandbox = () => !isVodacomProduction();
+
+function getVodacomBaseUrl() {
+  return isVodacomProduction() ? VODACOM_PRODUCTION_BASE_URL : VODACOM_SANDBOX_BASE_URL;
+}
+
+/**
+ * Reads Vodacom Tanzania credentials from environment.
+ * If credentials are not present, can run in mock simulation mode for testing.
+ */
+function getVodacomConfig(env = process.env) {
+  const apiKey = env.VODACOM_API_KEY || env.VODACOM_MPESA_API_KEY;
+  const publicKey = env.VODACOM_PUBLIC_KEY || env.VODACOM_MPESA_PUBLIC_KEY;
+  const serviceProviderCode = env.VODACOM_SERVICE_PROVIDER_CODE || env.VODACOM_SHORTCODE || '000000';
+  const baseUrl = getVodacomBaseUrl();
+
+  const isConfigured = Boolean(apiKey && publicKey);
+  const isMock = !isConfigured || env.VODACOM_MOCK === 'true';
+
+  return {
+    apiKey,
+    publicKey,
+    serviceProviderCode,
+    baseUrl,
+    isConfigured,
+    isMock,
+  };
 }
 
 /**
@@ -77,10 +111,16 @@ function getConfig(env = process.env) {
 module.exports = {
   SANDBOX_BASE_URL,
   PRODUCTION_BASE_URL,
+  VODACOM_SANDBOX_BASE_URL,
+  VODACOM_PRODUCTION_BASE_URL,
   DEFAULT_CALLBACK_URL,
   isProduction,
   isSandbox,
+  isVodacomProduction,
+  isVodacomSandbox,
   getMpesaBaseUrl,
+  getVodacomBaseUrl,
+  getVodacomConfig,
   resolveCallbackUrl,
   getConfig,
 };
